@@ -17,7 +17,7 @@ Repo `rossmelabasto/watcher-backend` (6 commits, 2026-04-21 → 2026-04-23). Cop
 - **Si no está autorizado:** guarda un registro en `unauthorized_logs` y avisa por Telegram con los datos del equipo; responde 403.
 - **Variables (`.env`, no versionado):** `GROQ_API_KEY`, `PORT`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`; más `firebase-key.json` (cuenta de servicio).
 
-### Apps — `~/Documents/apks/`
+### Apps — `~/Documents/apks/` (copias en `apks/` de esta carpeta, con `SHA256SUMS`)
 | Archivo | Fecha | SHA-256 (inicio) |
 |---|---|---|
 | `watcher.apk` | 2026-04-21 | `406cfd06bd50dc28…` |
