@@ -3,6 +3,7 @@ const config = require("./config");
 const { db, FieldValue, Timestamp } = require("./db");
 const ai = require("./ai");
 const { sha256, newToken, normalizeCode, dayKey } = require("./util");
+const { notify, esc } = require("./notify");
 
 const router = express.Router();
 
@@ -41,10 +42,14 @@ router.post("/enroll", async (req, res) => {
       });
     });
   } catch (e) {
-    if (e.status === 403) return res.status(403).json({ error: "Código inválido o agotado." });
+    if (e.status === 403) {
+      notify(`⚠️ Código de invitación rechazado (IP ${esc(req.ip)})`, { key: `bad-code:${req.ip}`, everyMs: 10 * 60 * 1000 });
+      return res.status(403).json({ error: "Código inválido o agotado." });
+    }
     console.error("enroll:", e);
     return res.status(500).json({ error: "Error interno." });
   }
+  notify(`✅ Dispositivo nuevo: <b>${esc(deviceRef.id.slice(0, 6))}</b> · ${esc(meta?.manufacturer)} ${esc(meta?.model)} (Android ${esc(meta?.androidVersion)})`);
   res.json({ token, termsVersion: config.termsVersion });
 });
 
@@ -99,6 +104,9 @@ router.post("/ask", auth, async (req, res) => {
       tx.set(usageRef, { deviceId: d.id, day: dayKey(), count: count + 1, tokens: s.data()?.tokens ?? 0 }, { merge: true });
     });
   } catch (e) {
+    if (e.status === 429) {
+      notify(`📛 Cuota diaria agotada: <b>${esc(d.alias)}</b> (${esc(d.plan)}, ${limit}/día)`, { key: `quota:${d.id}:${dayKey()}`, everyMs: 24 * 3600 * 1000 });
+    }
     if (e.status === 429) return res.status(429).json({ error: "Cuota diaria agotada.", limit });
     console.error("quota:", e);
     return res.status(500).json({ error: "Error interno." });
@@ -117,6 +125,7 @@ router.post("/ask", auth, async (req, res) => {
     res.json({ response: out.text });
   } catch (e) {
     console.error("ask:", e);
+    notify(`🔥 El modelo falló para <b>${esc(d.alias)}</b>: ${esc(e.message).slice(0, 200)}`, { key: "model-fail", everyMs: 5 * 60 * 1000 });
     // Devuelve la cuota si el modelo falló.
     await usageRef.update({ count: FieldValue.increment(-1) }).catch(() => {});
     res.status(502).json({ error: "El modelo no respondió. Intenta de nuevo." });
