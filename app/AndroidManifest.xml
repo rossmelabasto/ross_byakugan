@@ -18,7 +18,14 @@
         <!-- APP REAL: Oculta del launcher, solo accesible por el Intent secreto -->
         <activity android:name=".MainActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
-        <activity android:name=".AskActivity" android:exported="false" />
+        <!-- GHOST UI: Aparece en el menú contextual de texto (Chrome, WhatsApp, etc) -->
+        <activity android:name=".AskActivity" android:exported="true" android:label="Question" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
 
     </application>
 </manifest>

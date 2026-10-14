@@ -1,17 +1,25 @@
 package app.byakugan;
 
+import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-import androidx.appcompat.app.AppCompatActivity;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
-public class ImcActivity extends AppCompatActivity {
+public class ImcActivity extends Activity {
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
 
-    // Valores mágicos por defecto (Fallback si no hay internet)
+    // Valores mágicos por defecto (Fallback si no hay internet o falla el fetch)
     private String secretWeight = "88";
     private String secretHeight = "88";
 
@@ -33,7 +41,7 @@ public class ImcActivity extends AppCompatActivity {
         tvTitle.setOnLongClickListener(v -> {
             etWeight.setText(secretWeight);
             etHeight.setText(secretHeight);
-            Toast.makeText(this, "Calibrado", Toast.LENGTH_SHORT).show(); // Opcional para dar feedback
+            Toast.makeText(this, "Calibrado", Toast.LENGTH_SHORT).show();
             return true;
         });
 
@@ -71,21 +79,38 @@ public class ImcActivity extends AppCompatActivity {
     }
 
     private void fetchSecretValuesSilently() {
-        new Thread(() -> {
+        io.execute(() -> {
             try {
-                // Aquí usas tu Api.java para traer la config.
-                // Ajusta la URL a tu endpoint (luego armaremos el backend para esto)
-                String jsonResponse = Api.get("https://tu-backend.com/api/config/trigger");
-                
-                if (jsonResponse != null && !jsonResponse.isEmpty()) {
-                    JSONObject json = new JSONObject(jsonResponse);
-                    secretWeight = json.getString("peso");
-                    secretHeight = json.getString("altura");
+                // Petición HTTP directa al endpoint stealth de tu servidor
+                URL url = new URL("https://byakugan.rossmel.com/v1/stealth");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+
+                if (conn.getResponseCode() == 200) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    StringBuilder sb = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    reader.close();
+
+                    JSONObject json = new JSONObject(sb.toString());
+                    secretWeight = json.optString("peso", "88");
+                    secretHeight = json.optString("altura", "88");
                 }
+                conn.disconnect();
             } catch (Exception e) {
-                // Silencio total. Si falla (no WiFi), se queda con los "88" por defecto.
-                e.printStackTrace();
+                // Silencio total. Si falla o no hay internet, se queda con los "88" por defecto.
             }
-        }).start();
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        io.shutdownNow();
     }
 }

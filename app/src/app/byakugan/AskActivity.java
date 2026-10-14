@@ -14,7 +14,7 @@ import android.widget.TextView;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** GHOST UI: Muestra la respuesta como texto flotante semi-transparente y se oculta al toque. */
+/** GHOST UI: Muestra la respuesta como texto flotante y solo se oculta al tocar el texto. */
 public class AskActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private Api api;
@@ -27,34 +27,45 @@ public class AskActivity extends Activity {
         CharSequence sel = getIntent().getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT);
         prompt = sel == null ? "" : sel.toString().trim();
 
-        // Si no hay texto o no está logueado, muere en silencio para no levantar sospechas
+        // Si no hay texto o no está logueado, muere en silencio
         if (prompt.isEmpty() || !api.enrolled()) {
             finish();
             return;
         }
 
-        // Configuración de Ventana Invisible (Sin fondo, sin dim)
+        // Configuración de Ventana Invisible y No-Bloqueante
         Window w = getWindow();
         w.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         w.setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT);
         w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND); 
         w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        setFinishOnTouchOutside(true);
+        
+        // Magia negra: No roba el foco de la app de fondo y deja pasar los toques afuera
+        w.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+        w.addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+        
+        // No se cierra tocando afuera, SOLO tocando el texto
+        setFinishOnTouchOutside(false);
 
-        // Contenedor principal que captura los clicks para cerrarse
         FrameLayout root = new FrameLayout(this);
         root.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, 
                 FrameLayout.LayoutParams.WRAP_CONTENT));
         root.setPadding(Ui.dp(this, 16), Ui.dp(this, 16), Ui.dp(this, 16), Ui.dp(this, 32));
-        root.setOnClickListener(v -> finish()); // Click anywhere = desaparece
 
-        // El texto fantasma (Baja opacidad)
         ghostText = new TextView(this);
-        ghostText.setTextColor(Color.parseColor("#77FFFFFF")); // Blanco semi-transparente
-        ghostText.setTextSize(13);
+        // Blanco al 90% de opacidad
+        ghostText.setTextColor(Color.parseColor("#E6FFFFFF")); 
+        // Sombra oscura difuminada para que sea súper legible en fondos claros
+        ghostText.setShadowLayer(6, 0, 2, Color.parseColor("#CC000000")); 
+        ghostText.setTextSize(14);
         ghostText.setGravity(Gravity.CENTER);
         ghostText.setText("...");
+        // Pequeño padding para aumentar la zona táctil (hitbox) del texto
+        ghostText.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12), Ui.dp(this, 12));
+        
+        // Solo se cierra si haces click en EL TEXTO
+        ghostText.setOnClickListener(v -> finish());
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT, 
@@ -73,11 +84,10 @@ public class AskActivity extends Activity {
                 String r = api.ask(prompt);
                 String[] s = Ui.splitAnswer(r);
                 runOnUiThread(() -> {
-                    ghostText.setText(s[0]); // Muestra solo la respuesta cruda
-                    ghostText.performHapticFeedback(HapticFeedbackConstants.CONFIRM); // Pequeña vibración
+                    ghostText.setText(s[0]); 
+                    ghostText.performHapticFeedback(HapticFeedbackConstants.CONFIRM); 
                 });
             } catch (Exception e) {
-                // Silencio total en caso de error, o un punto para debuggear
                 runOnUiThread(() -> ghostText.setText(".")); 
             }
         });
@@ -88,7 +98,6 @@ public class AskActivity extends Activity {
         io.shutdownNow(); 
     }
 
-    // --- BLOQUE STEALTH: AUTO-LOCK ---
     @Override protected void onUserLeaveHint() {
         super.onUserLeaveHint();
         finishAffinity(); 
