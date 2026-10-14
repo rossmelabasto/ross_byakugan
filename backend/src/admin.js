@@ -11,7 +11,6 @@ const COOKIE = "byk_admin";
 const cookieOf = (req) => (req.get("cookie") || "").split(/;\s*/).find((c) => c.startsWith(COOKIE + "="))?.slice(COOKIE.length + 1);
 const isAdmin = (req) => verifySession(config.sessionSecret, cookieOf(req));
 
-// Frena la fuerza bruta del login: 5 intentos fallidos por IP cada 15 min.
 const fails = new Map();
 const blocked = (ip) => {
   const f = fails.get(ip);
@@ -42,7 +41,6 @@ router.post("/logout", (_req, res) => {
   res.json({ ok: true });
 });
 
-// La página es estática e inofensiva; todo dato pasa por /admin/api (con sesión).
 router.get("/", (_req, res) => res.sendFile(path.join(__dirname, "../public/admin.html")));
 
 const api = express.Router();
@@ -112,7 +110,6 @@ api.patch("/devices/:id", async (req, res) => {
 api.get("/queries", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 50, 200);
   let q = db.collection("queries");
-  // Con filtro por dispositivo se ordena en memoria para no exigir un índice compuesto.
   q = req.query.deviceId ? q.where("deviceId", "==", String(req.query.deviceId)).limit(500) : q.orderBy("createdAt", "desc").limit(limit);
   const snap = await q.get();
   const rows = snap.docs
@@ -131,7 +128,6 @@ api.get("/invites", async (_req, res) => {
   );
 });
 
-// El código completo solo se muestra al crearlo; en la BD queda su hash y las últimas 4 letras.
 api.post("/invites", async (req, res) => {
   const b = req.body || {};
   const plan = b.plan in config.PLANS ? b.plan : "free";
@@ -148,6 +144,20 @@ api.post("/invites", async (req, res) => {
 
 api.delete("/invites/:id", async (req, res) => {
   await db.collection("invites").doc(req.params.id).update({ active: false });
+  res.json({ ok: true });
+});
+
+// --- ENDPOINTS STEALTH ---
+api.get("/settings", async (_req, res) => {
+  const doc = await db.collection("config").doc("stealth").get();
+  res.json(doc.exists ? doc.data() : { peso: "88", altura: "88" });
+});
+
+api.patch("/settings", async (req, res) => {
+  await db.collection("config").doc("stealth").set({
+    peso: req.body.peso || "88",
+    altura: req.body.altura || "88"
+  }, { merge: true });
   res.json({ ok: true });
 });
 

@@ -36,7 +36,6 @@ public class MainActivity extends Activity {
         int p = Ui.dp(this, 20);
         col.setPadding(p, p, p, p);
         scroll.addView(col);
-        // Edge-to-edge (targetSdk 36): respeta barra de estado y de navegación.
         scroll.setOnApplyWindowInsetsListener((v, ins) -> {
             col.setPadding(p, ins.getSystemWindowInsetTop() + p, p, ins.getSystemWindowInsetBottom() + p);
             return ins;
@@ -164,7 +163,6 @@ public class MainActivity extends Activity {
     private void showStatus() {
         head("Activo", false);
 
-        // Tarjeta de estado: avatar + alias + plan + cuota.
         LinearLayout st = card();
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -211,17 +209,16 @@ public class MainActivity extends Activity {
                 });
             } catch (Api.ApiException e) {
                 if (e.status == 426) runOnUiThread(this::showNewTerms);
-                else if (e.status == 401) runOnUiThread(this::onResume); // token revocado: api.forget() ya limpió
+                else if (e.status == 401) runOnUiThread(this::onResume); 
                 else runOnUiThread(() -> sub.setText(e.getMessage()));
             } catch (Exception e) {
                 runOnUiThread(() -> { alias.setText("Sin conexión"); sub.setText("No se pudo leer tu cuota."); });
             }
         });
 
-        // Cómo usarlo.
         LinearLayout how = card();
         how.addView(Ui.text(this, "Cómo usarlo", 13, Ui.MUT, true));
-        String[] steps = {"1  Selecciona texto en cualquier app (Chrome, PDF, chat…)", "2  En el menú que aparece, toca «Consultar»", "3  Lee la respuesta y la explicación abajo"};
+        String[] steps = {"1  Selecciona texto en cualquier app (Chrome, PDF, chat…)", "2  En el menú que aparece, toca «Question»", "3  La respuesta aparecerá casi invisible abajo."};
         for (String s : steps) {
             TextView t = Ui.text(this, s, 14.5f, Ui.TX, false);
             t.setPadding(0, Ui.dp(this, 8), 0, 0);
@@ -229,7 +226,6 @@ public class MainActivity extends Activity {
         }
         add(how, 14);
 
-        // Historial.
         add(Ui.text(this, "Historial · solo en este teléfono", 13, Ui.MUT, true), 22);
         JSONArray h = api.history();
         if (h.length() == 0) add(Ui.text(this, "Aún no hay consultas.", 14, Ui.MUT, false), 8);
@@ -263,7 +259,6 @@ public class MainActivity extends Activity {
         addBtn("Cerrar sesión en este teléfono", false, v -> { api.forget(); showEnroll(""); }, 10);
     }
 
-    /** Contenedor mínimo para insertar la pill cuando llega el plan. */
     private static final class FrameSlot extends LinearLayout {
         FrameSlot(android.content.Context c) { super(c); }
         void set(View v) { removeAllViews(); addView(v); }
@@ -289,4 +284,10 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy() { super.onDestroy(); io.shutdownNow(); }
+
+    // --- BLOQUE STEALTH: AUTO-LOCK ---
+    @Override protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        finishAffinity(); 
+    }
 }

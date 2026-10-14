@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="32dp" android:gravity="center_horizontal" android:background="#F5F5F5">
+
+    <!-- El trigger secreto: Long press aquí -->
+    <TextView android:id="@+id/tvTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Calculadora IMC" android:textSize="28sp" android:textStyle="bold" android:layout_marginTop="40dp" android:layout_marginBottom="40dp" android:textColor="#333333" />
+
+    <EditText android:id="@+id/etWeight" android:layout_width="match_parent" android:layout_height="60dp" android:hint="Peso (kg)" android:inputType="numberDecimal" android:background="#FFFFFF" android:padding="16dp" android:layout_marginBottom="16dp"/>
+
+    <EditText android:id="@+id/etHeight" android:layout_width="match_parent" android:layout_height="60dp" android:hint="Altura (cm)" android:inputType="numberDecimal" android:background="#FFFFFF" android:padding="16dp" android:layout_marginBottom="32dp"/>
+
+    <Button android:id="@+id/btnCalculate" android:layout_width="match_parent" android:layout_height="60dp" android:text="Calcular" android:textSize="18sp" android:backgroundTint="#007BFF" android:textColor="#FFFFFF" />
+
+    <TextView android:id="@+id/tvResult" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="32dp" android:textSize="20sp" android:textAlignment="center" android:textColor="#555555" />
+
+</LinearLayout>
