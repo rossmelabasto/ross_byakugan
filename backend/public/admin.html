@@ -11,7 +11,7 @@ main{padding:16px;max-width:1100px;margin:auto}.grid{display:grid;grid-template-
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}.card .n{font-size:28px;font-weight:700}.mut{color:var(--mut)}
 table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mut);font-weight:500}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--mut);margin-right:6px}.dot.live{background:var(--ac)}.dot.off{background:var(--bad)}
-.bars{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:10px}.bars div{flex:1;background:var(--ac);border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.bars{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:10px}.bars div{flex:1;max-width:56px;background:var(--ac);border-radius:3px 3px 0 0;min-height:2px;position:relative}
 .bars span{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:10px;color:var(--mut)}
 pre{white-space:pre-wrap;margin:4px 0 0;font:inherit;color:var(--mut)}.row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 #login{max-width:320px;margin:20vh auto;display:flex;flex-direction:column;gap:10px}.hide{display:none!important}
@@ -66,6 +66,6 @@ async function viewInvites(){const inv=await api('/invites');
  $('#view').replaceChildren(h('div',{class:'row'},label,plan,uses,days,h('button',{class:'pri',on:{click:create}},'Crear')),out,
   h('table',{},h('thead',{},h('tr',{},...['Etiqueta','Código','Plan','Usos','Caduca','Estado',''].map(x=>h('th',{},x)))),
    h('tbody',{},...inv.map(i=>h('tr',{},h('td',{},i.label||'—'),h('td',{class:'mut'},'BYA-····-'+i.hint),h('td',{},i.plan),h('td',{},i.uses+' / '+i.maxUses),h('td',{class:'mut'},i.expiresAt?fmt(i.expiresAt):'nunca'),
-    h('td',{},i.active?'activa':'revocada'),h('td',{},i.active?h('button',{class:'bad',on:{click:async()=>{await api('/invites/'+i.id,'DELETE');viewInvites()}}},'Revocar'):null)))))))}
+    h('td',{},i.active?'activa':'revocada'),h('td',{},i.active?h('button',{class:'bad',on:{click:async()=>{await api('/invites/'+i.id,'DELETE');viewInvites()}}},'Revocar'):null))))))}
 fetch('/admin/api/overview').then(r=>r.ok?start():showLogin());
 </script></body></html>
