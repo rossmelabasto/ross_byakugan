@@ -1,0 +1,25 @@
+# byakugan.rossmel.com — backend + panel admin. Puerto solo en 127.0.0.1 (lo expone cloudflared).
+services:
+  byakugan:
+    build: ./backend
+    container_name: byakugan
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+      - /home/rossmel/.config/notificar/telegram.env   # TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID compartidos
+    environment:
+      - TZ=America/La_Paz
+      - PORT=8101
+      - HOST=0.0.0.0
+      - FIREBASE_KEY_PATH=/run/secrets/firebase-key.json
+      - NODE_OPTIONS=--dns-result-order=ipv4first
+    ports:
+      - "127.0.0.1:8101:8101"
+    volumes:
+      - ./backend/firebase-key.json:/run/secrets/firebase-key.json:ro
+    mem_limit: 192m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8101/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
