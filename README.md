@@ -4,6 +4,6 @@ Asistente de estudio: seleccionas texto en el móvil → "Consultar" → respues
 
 - `backend/` — Express + Firestore + Groq (`/v1/enroll`, `/v1/me`, `/v1/ask`). Se despliega en lilarch (Docker + Cloudflare Tunnel).
 - `docs/TERMS.md` — términos que acepta cada dispositivo al canjear su invitación.
-- Pendiente: `backend/src/admin.js` + panel web (dispositivos activos, consultas, invitaciones) y la app Android.
+- `app/` — app Android en Java sin Gradle (`./build.sh [install]`: aapt2 → javac → d8 → apksigner; JDK de Android Studio como respaldo). Activación con código + términos, estado/cuota, historial local y acción «Consultar» (PROCESS_TEXT).
 
 Arranque local: `cd backend && cp .env.example .env && npm install && npm start`.
