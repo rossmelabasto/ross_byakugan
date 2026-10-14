@@ -2,12 +2,13 @@ package app.byakugan;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.text.format.DateUtils;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -19,23 +20,27 @@ import java.util.concurrent.Executors;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Pantalla principal: activación con código + términos, y estado/historial una vez activada. */
+/** Pantalla principal: activación con código + términos, y estado/cuota/historial una vez activada. */
 public class MainActivity extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private Api api;
-    private ScrollView scroll;
     private LinearLayout col;
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         api = new Api(this);
-        scroll = new ScrollView(this);
+        ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         int p = Ui.dp(this, 20);
-        col.setPadding(p, p * 2, p, p);
+        col.setPadding(p, p, p, p);
         scroll.addView(col);
+        // Edge-to-edge (targetSdk 36): respeta barra de estado y de navegación.
+        scroll.setOnApplyWindowInsetsListener((v, ins) -> {
+            col.setPadding(p, ins.getSystemWindowInsetTop() + p, p, ins.getSystemWindowInsetBottom() + p);
+            return ins;
+        });
         setContentView(scroll);
     }
 
@@ -53,110 +58,234 @@ public class MainActivity extends Activity {
         } catch (Exception e) { return "No se pudieron cargar los términos."; }
     }
 
-    private void head(String subtitle) {
-        col.removeAllViews();
-        col.addView(Ui.text(this, "Byakugan", 28, Ui.AC, true));
-        col.addView(Ui.text(this, subtitle, 14, Ui.MUT, false));
+    private static String ago(long t) {
+        long s = (System.currentTimeMillis() - t) / 1000;
+        if (s < 90) return "ahora";
+        if (s < 3600) return "hace " + Math.round(s / 60.0) + " min";
+        if (s < 86400) return "hace " + Math.round(s / 3600.0) + " h";
+        return "hace " + Math.round(s / 86400.0) + " d";
     }
 
-    private View gap() { View v = new View(this); v.setLayoutParams(new LinearLayout.LayoutParams(1, Ui.dp(this, 14))); return v; }
+    private View gap(float dp) { View v = new View(this); v.setLayoutParams(new LinearLayout.LayoutParams(1, Ui.dp(this, dp))); return v; }
+
+    private LinearLayout card() {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(Ui.box(this, Ui.CARD, Ui.LINE, 16));
+        int pp = Ui.dp(this, 16);
+        c.setPadding(pp, pp, pp, pp);
+        return c;
+    }
+
+    private void add(View v, float topDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = Ui.dp(this, topDp);
+        col.addView(v, lp);
+    }
+
+    private void addBtn(String label, boolean primary, View.OnClickListener l, float topDp) {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 50));
+        lp.topMargin = Ui.dp(this, topDp);
+        col.addView(Ui.button(this, label, primary, l), lp);
+    }
+
+    private ImageView logo(int sizeDp) {
+        ImageView iv = new ImageView(this);
+        iv.setImageResource(R.drawable.ic_eye_dark);
+        iv.setBackground(Ui.gradient(this, sizeDp * 0.3f));
+        int pad = Ui.dp(this, sizeDp * 0.08f);
+        iv.setPadding(pad, pad, pad, pad);
+        iv.setLayoutParams(new LinearLayout.LayoutParams(Ui.dp(this, sizeDp), Ui.dp(this, sizeDp)));
+        return iv;
+    }
+
+    private void head(String subtitle, boolean big) {
+        col.removeAllViews();
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.addView(logo(big ? 56 : 40));
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        t.addView(Ui.text(this, "Byakugan", big ? 26 : 22, Ui.TX, true));
+        t.addView(Ui.text(this, subtitle, 13, Ui.MUT, false));
+        row.addView(t);
+        col.addView(row);
+    }
 
     private void showEnroll(String error) {
-        head("Asistente de estudio. Activa tu acceso con el código que te dieron.");
-        col.addView(gap());
+        head("Asistente de estudio", true);
+        add(Ui.text(this, "Activa tu acceso con el código de invitación que te dieron.", 15, Ui.SUB, false), 22);
         EditText code = Ui.input(this, "BYA-XXXX-XXXX");
-        code.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        code.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        code.setTextSize(18);
         EditText name = Ui.input(this, "Tu nombre o alias (opcional)");
-        col.addView(code);
-        col.addView(gap());
-        col.addView(name);
-        col.addView(gap());
-        TextView t = Ui.text(this, terms(), 12, Ui.MUT, false);
-        t.setBackground(Ui.box(this, Ui.CARD, Ui.LINE, 10));
-        int pp = Ui.dp(this, 12);
+        add(code, 16);
+        add(name, 10);
+
+        TextView toggle = Ui.text(this, "Términos y condiciones  ▾", 14, Ui.BLUE, true);
+        TextView t = Ui.text(this, terms(), 12.5f, Ui.SUB, false);
+        t.setBackground(Ui.box(this, Ui.CARD, Ui.LINE, 12));
+        int pp = Ui.dp(this, 14);
         t.setPadding(pp, pp, pp, pp);
-        col.addView(t);
+        t.setVisibility(View.GONE);
+        toggle.setOnClickListener(v -> {
+            boolean open = t.getVisibility() == View.VISIBLE;
+            t.setVisibility(open ? View.GONE : View.VISIBLE);
+            toggle.setText(open ? "Términos y condiciones  ▾" : "Términos y condiciones  ▴");
+        });
+        add(toggle, 18);
+        add(t, 8);
         CheckBox ok = new CheckBox(this);
         ok.setText("Leí y acepto los términos");
         ok.setTextColor(Ui.TX);
-        col.addView(ok);
+        ok.setButtonTintList(android.content.res.ColorStateList.valueOf(Ui.AC));
+        add(ok, 8);
         TextView err = Ui.text(this, error, 13, Ui.BAD, false);
-        col.addView(err);
-        col.addView(gap());
-        col.addView(Ui.button(this, "Activar", true, v -> {
+        add(err, 6);
+        addBtn("Activar", true, v -> {
             if (!ok.isChecked()) { err.setText("Debes aceptar los términos."); return; }
+            if (code.getText().toString().trim().isEmpty()) { err.setText("Escribe tu código de invitación."); return; }
+            err.setTextColor(Ui.SUB);
             err.setText("Activando…");
             io.execute(() -> {
                 try {
                     api.enroll(code.getText().toString().trim(), name.getText().toString().trim());
                     runOnUiThread(this::showStatus);
                 } catch (Api.ApiException e) {
-                    runOnUiThread(() -> err.setText(e.getMessage()));
+                    runOnUiThread(() -> { err.setTextColor(Ui.BAD); err.setText(e.getMessage()); });
                 } catch (Exception e) {
-                    runOnUiThread(() -> err.setText("Sin conexión con el servidor."));
+                    runOnUiThread(() -> { err.setTextColor(Ui.BAD); err.setText("Sin conexión con el servidor."); });
                 }
             });
-        }));
+        }, 10);
     }
 
     private void showStatus() {
-        head("Activa. Selecciona texto en cualquier app y toca «Consultar».");
-        TextView info = Ui.text(this, "Cargando…", 15, Ui.TX, false);
-        info.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 6));
-        col.addView(info);
+        head("Activo", false);
+
+        // Tarjeta de estado: avatar + alias + plan + cuota.
+        LinearLayout st = card();
+        LinearLayout top = new LinearLayout(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.addView(Ui.avatar(this, "…", Ui.MUT, 46));
+        LinearLayout who = new LinearLayout(this);
+        who.setOrientation(LinearLayout.VERTICAL);
+        who.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        TextView alias = Ui.text(this, "Cargando…", 17, Ui.TX, true);
+        TextView sub = Ui.text(this, " ", 12.5f, Ui.MUT, false);
+        who.addView(alias);
+        who.addView(sub);
+        top.addView(who, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        FrameSlot pillSlot = new FrameSlot(this);
+        top.addView(pillSlot);
+        st.addView(top);
+        LinearLayout q = new LinearLayout(this);
+        TextView qa = Ui.text(this, "Hoy", 12.5f, Ui.SUB, false);
+        TextView qb = Ui.text(this, "—", 12.5f, Ui.SUB, true);
+        q.addView(qa, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        q.addView(qb);
+        LinearLayout.LayoutParams qlp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        qlp.topMargin = Ui.dp(this, 16);
+        st.addView(q, qlp);
+        Ui.Bar bar = new Ui.Bar(this);
+        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        blp.topMargin = Ui.dp(this, 6);
+        st.addView(bar, blp);
+        add(st, 20);
+
         io.execute(() -> {
             try {
                 JSONObject m = api.me();
-                runOnUiThread(() -> info.setText(m.optString("alias") + " · plan " + m.optString("plan") + "\nHoy: " + m.optInt("used") + " de " + m.optInt("limit") + " consultas"));
+                runOnUiThread(() -> {
+                    String name = m.optString("alias"), plan = m.optString("plan");
+                    boolean unl = m.isNull("limit");
+                    int used = m.optInt("used"), limit = m.optInt("limit");
+                    ((ViewGroup) top.getChildAt(0).getParent()).removeViewAt(0);
+                    top.addView(Ui.avatar(this, name, Ui.planColor(plan), 46), 0);
+                    alias.setText(name);
+                    sub.setText("Plan " + plan);
+                    pillSlot.set(Ui.pill(this, plan, Ui.planColor(plan)));
+                    qb.setText(unl ? used + " · ilimitado" : used + " / " + limit);
+                    bar.set(unl ? 1f : limit == 0 ? 1f : used / (float) limit, unl);
+                });
             } catch (Api.ApiException e) {
                 if (e.status == 426) runOnUiThread(this::showNewTerms);
-                else runOnUiThread(this::onResume); // token revocado → api.forget() ya limpió y vuelve a la activación
+                else if (e.status == 401) runOnUiThread(this::onResume); // token revocado: api.forget() ya limpió
+                else runOnUiThread(() -> sub.setText(e.getMessage()));
             } catch (Exception e) {
-                runOnUiThread(() -> info.setText("Sin conexión: no se pudo leer tu cuota."));
+                runOnUiThread(() -> { alias.setText("Sin conexión"); sub.setText("No se pudo leer tu cuota."); });
             }
         });
 
-        col.addView(Ui.text(this, "Historial (solo en este teléfono)", 13, Ui.MUT, false));
+        // Cómo usarlo.
+        LinearLayout how = card();
+        how.addView(Ui.text(this, "Cómo usarlo", 13, Ui.MUT, true));
+        String[] steps = {"1  Selecciona texto en cualquier app (Chrome, PDF, chat…)", "2  En el menú que aparece, toca «Consultar»", "3  Lee la respuesta y la explicación abajo"};
+        for (String s : steps) {
+            TextView t = Ui.text(this, s, 14.5f, Ui.TX, false);
+            t.setPadding(0, Ui.dp(this, 8), 0, 0);
+            how.addView(t);
+        }
+        add(how, 14);
+
+        // Historial.
+        add(Ui.text(this, "Historial · solo en este teléfono", 13, Ui.MUT, true), 22);
         JSONArray h = api.history();
-        if (h.length() == 0) col.addView(Ui.text(this, "Aún no hay consultas.", 14, Ui.MUT, false));
+        if (h.length() == 0) add(Ui.text(this, "Aún no hay consultas.", 14, Ui.MUT, false), 8);
         for (int i = 0; i < h.length(); i++) {
             JSONObject e = h.optJSONObject(i);
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setBackground(Ui.box(this, Ui.CARD, Ui.LINE, 10));
-            int pp = Ui.dp(this, 12);
-            card.setPadding(pp, pp, pp, pp);
-            String q = e.optString("q");
-            card.addView(Ui.text(this, q.length() > 120 ? q.substring(0, 120) + "…" : q, 13, Ui.MUT, false));
-            card.addView(Ui.text(this, e.optString("a"), 14, Ui.TX, false));
-            card.addView(Ui.text(this, DateUtils.getRelativeTimeSpanString(e.optLong("t")).toString(), 11, Ui.MUT, false));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.topMargin = Ui.dp(this, 8);
-            col.addView(card, lp);
+            String[] s = Ui.splitAnswer(e.optString("a"));
+            LinearLayout c = card();
+            String qq = e.optString("q");
+            TextView tq = Ui.text(this, qq, 12.5f, Ui.MUT, false);
+            tq.setMaxLines(2);
+            tq.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            c.addView(tq);
+            TextView ta = Ui.text(this, s[0], 17, Ui.AC, true);
+            ta.setPadding(0, Ui.dp(this, 6), 0, 0);
+            c.addView(ta);
+            if (!s[1].isEmpty()) {
+                TextView te = Ui.text(this, s[1], 14, Ui.SUB, false);
+                te.setMaxLines(2);
+                te.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                te.setPadding(0, Ui.dp(this, 4), 0, 0);
+                c.addView(te);
+                c.setOnClickListener(v -> { boolean open = te.getMaxLines() > 2; te.setMaxLines(open ? 2 : 100); tq.setMaxLines(open ? 2 : 100); });
+            }
+            TextView tt = Ui.text(this, ago(e.optLong("t")), 11, Ui.MUT, false);
+            tt.setPadding(0, Ui.dp(this, 8), 0, 0);
+            c.addView(tt);
+            add(c, 10);
         }
-        col.addView(gap());
-        col.addView(Ui.button(this, "Ver términos", false, v -> showTerms()));
-        col.addView(Ui.button(this, "Cerrar sesión en este teléfono", false, v -> { api.forget(); showEnroll(""); }));
+
+        addBtn("Ver términos", false, v -> showTerms(), 24);
+        addBtn("Cerrar sesión en este teléfono", false, v -> { api.forget(); showEnroll(""); }, 10);
+    }
+
+    /** Contenedor mínimo para insertar la pill cuando llega el plan. */
+    private static final class FrameSlot extends LinearLayout {
+        FrameSlot(android.content.Context c) { super(c); }
+        void set(View v) { removeAllViews(); addView(v); }
     }
 
     private void showTerms() {
-        head("Términos y condiciones");
-        col.addView(gap());
-        col.addView(Ui.text(this, terms(), 13, Ui.TX, false));
-        col.addView(gap());
-        col.addView(Ui.button(this, "Volver", true, v -> showStatus()));
+        head("Términos y condiciones", false);
+        TextView t = Ui.text(this, terms(), 14, Ui.TX, false);
+        t.setLineSpacing(0, 1.15f);
+        add(t, 20);
+        addBtn("Volver", true, v -> showStatus(), 20);
     }
 
     private void showNewTerms() {
-        head("Términos actualizados");
-        col.addView(gap());
-        col.addView(Ui.text(this, terms(), 13, Ui.TX, false));
+        head("Términos actualizados", false);
+        add(Ui.text(this, terms(), 14, Ui.TX, false), 20);
         TextView err = Ui.text(this, "", 13, Ui.BAD, false);
-        col.addView(err);
-        col.addView(Ui.button(this, "Acepto", true, v -> io.execute(() -> {
+        add(err, 8);
+        addBtn("Acepto", true, v -> io.execute(() -> {
             try { api.acceptTerms(); runOnUiThread(this::showStatus); }
             catch (Exception e) { runOnUiThread(() -> err.setText("No se pudo aceptar: " + e.getMessage())); }
-        })));
+        }), 10);
     }
 
     @Override protected void onDestroy() { super.onDestroy(); io.shutdownNow(); }

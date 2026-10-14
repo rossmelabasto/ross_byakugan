@@ -88,7 +88,7 @@ api.get("/devices", async (_req, res) => {
         const x = d.data();
         return {
           id: d.id, alias: x.alias, plan: x.plan, active: x.active, dailyLimit: x.dailyLimit ?? null,
-          limit: x.dailyLimit ?? config.PLANS[x.plan]?.dailyLimit ?? 0, usedToday: used[d.id] || 0,
+          limit: x.dailyLimit ?? config.PLANS[x.plan]?.dailyLimit ?? null, usedToday: used[d.id] || 0,
           meta: x.meta, termsVersion: x.termsVersion, createdAt: ms(x.createdAt), lastSeen: ms(x.lastSeen),
         };
       })

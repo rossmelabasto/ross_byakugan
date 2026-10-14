@@ -15,7 +15,8 @@ async function ask(prompt) {
   const t0 = Date.now();
   const completion = await groq.chat.completions.create({
     model: config.groqModel,
-    temperature: 0.2,
+    temperature: 0,
+    reasoning_effort: config.reasoningEffort,
     messages: [
       { role: "system", content: SYSTEM },
       { role: "user", content: prompt },

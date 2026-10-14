@@ -71,7 +71,12 @@ function makeAuth(enforceTerms) {
   };
 }
 
-const limitOf = (d) => d.dailyLimit ?? config.PLANS[d.plan]?.dailyLimit ?? 0;
+// Tope diario efectivo; Infinity = ilimitado.
+const limitOf = (d) => {
+  const v = d.dailyLimit ?? config.PLANS[d.plan]?.dailyLimit;
+  return v === null || v === undefined ? (d.plan === "unlimited" ? Infinity : 0) : v;
+};
+const limitJson = (n) => (Number.isFinite(n) ? n : null);
 
 async function usageToday(deviceId) {
   const s = await db.collection("usage_daily").doc(`${deviceId}_${dayKey()}`).get();
@@ -83,7 +88,7 @@ router.get("/me", auth, async (req, res) => {
   const d = req.device;
   await db.collection("devices").doc(d.id).update({ lastSeen: FieldValue.serverTimestamp() });
   const used = await usageToday(d.id);
-  res.json({ alias: d.alias, plan: d.plan, used, limit: limitOf(d), termsVersion: config.termsVersion });
+  res.json({ alias: d.alias, plan: d.plan, used, limit: limitJson(limitOf(d)), termsVersion: config.termsVersion });
 });
 
 // Consulta.
@@ -107,7 +112,7 @@ router.post("/ask", auth, async (req, res) => {
     if (e.status === 429) {
       notify(`📛 Cuota diaria agotada: <b>${esc(d.alias)}</b> (${esc(d.plan)}, ${limit}/día)`, { key: `quota:${d.id}:${dayKey()}`, everyMs: 24 * 3600 * 1000 });
     }
-    if (e.status === 429) return res.status(429).json({ error: "Cuota diaria agotada.", limit });
+    if (e.status === 429) return res.status(429).json({ error: "Cuota diaria agotada.", limit: limitJson(limit) });
     console.error("quota:", e);
     return res.status(500).json({ error: "Error interno." });
   }
